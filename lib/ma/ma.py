@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-
+import pymysql as db
 from lib.db.db_op import update_dailytb
 from lib.db.testdb import get_dataframe
 
@@ -33,10 +33,20 @@ def cal_ma_all(codes, tb_head, nMa):
         tb_name = tb_head + code
         df = get_dataframe(tb_name)
         dic = cal_ma(df, nMa)
-        for key in dic.keys():
-            paras = 'update into ' + tb_name + ' set ma%d = %lf where date = %s'%(nMa, dic[key], key)
-            update_dailytb(db_host, db_user, db_pw, db_name, tb_name,paras)
-
+        if df is None or len(df)<5 or dic is None:
+            print(code + ' is none')
+            continue
+        try:
+            con = db.connect(db_host, db_user, db_pw, db_name, charset='utf8')
+            cursor = con.cursor()
+            for key in dic.keys():
+                paras = 'update ' + tb_name + ' set ma%d = "%lf" where date = "%s"'%(nMa, dic[key], key)
+                cursor.execute(paras)
+            con.commit()
+            cursor.close()
+            con.close()
+        except:
+            print(code + " ma cal failed")
 ############获得总均值数、递增MA数#############
 def get_rise_mas(ma):
     count = 0
@@ -51,6 +61,9 @@ def get_rise_mas(ma):
 ######用均值判断股票好坏##########
 def is_good_stock(ma):
     size,count = get_rise_mas(ma)
+    if size == 0:
+        return False
+
     if float(count)/float(size)>0.8:
         return True
     else:

@@ -14,13 +14,12 @@ def create_db(host, user, pw, name):
                 cursor.execute('drop database if exists '+name)
             cursor.execute('create database if not exists ' + name)
             con.commit()
+            cursor.close()
+            con.close()
 
     except db.Error as e:
         print(e.args[0], e.args[1])
         pass
-    finally:
-        cursor.close()
-        con.close()
 
 ###################销毁表###################
 def drop_table(host, user, pw, db_name, table_name):
@@ -29,6 +28,9 @@ def drop_table(host, user, pw, db_name, table_name):
         cursor = con.cursor()
         with cursor:
             cursor.execute('drop table IF EXISTS '+table_name)
+            con.commit()
+            cursor.close()
+            con.close()
 
 ###################创建表###################
 def create_dailytable(host, user, pw, db_name, table_name):
@@ -41,8 +43,11 @@ def create_dailytable(host, user, pw, db_name, table_name):
                            'code varchar(6), name varchar(25), close double,' +
                            'high double, low double, open double, head double,' +
                            'amount double, latitude double, turnover double,' +
-                           'volume double, transaction double, hkd double, famc double)')
+                           'volume double, transaction double, hkd double, famc double,'+
+                           'weight_close double, ma5 double, ma10 double, ma20 double)')
             con.commit()
+            cursor.close()
+            con.close()
 
 ###########插入日线数据###########
 def insert_dailytable(host, user, pw, db_name, table_name, df):
@@ -68,20 +73,30 @@ def insert_dailytable(host, user, pw, db_name, table_name, df):
                     pass
                 index = index + 1
             con.commit()
+            cursor.close()
+            con.close()
 
 ################插入一条日线记录#############
 def insert_onedata(host, user, pw, db_name, table_name, dic):
-    con = db.connect(host, user, pw, db_name, charset='utf8')
-    with con:
+    try:
+        con = db.connect(host, user, pw, db_name, charset='utf8')
         cursor = con.cursor()
-        with cursor:
-            cursor.execute('insert into ' + table_name +
-                               '(date,code,name,close,high,low,open,head,amount,'+
-                               'latitude,turnover,volume,transaction,hkd,famc)'+
-                               "values('%s','%s','%s','%lf','%lf','%lf','%lf','%lf','%lf','%lf','%lf','%lf','%lf','%lf','%lf')"
-                               %(dic['date'],dic['code'],dic['name'],dic['close'],dic['high'],dic['low']
-                                 , dic['open'],dic['head'],dic['amount'],dic['latitude'],dic['turnover']
-                                 , dic['volume'],dic['transaction'],dic['hkd'],dic['famc']))
+        cursor.execute('select * from ' + table_name + ' order by id desc limit 1')
+        dt = cursor.fetchall()
+        print(dic)
+        print(dt)
+        cursor.execute('insert into ' + table_name +
+                           '(date,code,name,close,high,low,open,head,amount,'+
+                           'latitude,turnover,volume,transaction,hkd,famc,weight_close)'+
+                           "values('%s','%s','%s','%lf','%lf','%lf','%lf','%lf','%lf','%lf','%lf','%lf','%lf','%lf','%lf','%lf')"
+                           %(dic['date'],dic['code'],dic['name'],dic['close'],dic['high'],dic['low']
+                             , dic['open'],dic['head'],dic['amount'],dic['latitude'],dic['turnover']
+                             , dic['volume'],dic['transaction'],dic['hkd'],dic['famc'],dt[0][16]))
+        con.commit()
+        cursor.close()
+        con.close()
+    except:
+        print(table_name+" insert one data failed")
 
 #############添加列##############
 def add_column(host, user, pw, db_name, table_name, column_name, datatype):
@@ -91,6 +106,9 @@ def add_column(host, user, pw, db_name, table_name, column_name, datatype):
         with cursor:
             cursor.execute('alter table '+table_name+' add '+
                            column_name + ' '+datatype)
+            con.commit()
+            cursor.close()
+            con.close()
 
 #############创建月线表###########
 def create_monthtb(host, user, pw, db_name, table_name):
@@ -101,8 +119,11 @@ def create_monthtb(host, user, pw, db_name, table_name):
             cursor.execute('create table if not exists '+table_name +
                            '(Id INT PRIMARY KEY AUTO_INCREMENT, date VARCHAR(14), ' +
                            'code varchar(6), name varchar(25), close double,' +
-                           'high double, low double, open double,amount double'+
-                           'weight_close double')
+                           'high double, low double, open double,amount double, '+
+                           'weight_close double, ma5 double, ma10 double, ma20 double)')
+            con.commit()
+            cursor.close()
+            con.close()
 
 #############创建周线表###########
 def create_weektb(host, user, pw, db_name, table_name):
@@ -110,16 +131,20 @@ def create_weektb(host, user, pw, db_name, table_name):
 
 ############插入一条月线记录#############
 def insert_month_data(host, user, pw, db_name, table_name, dic):
-    con = db.connect(host, user, pw, db_name, charset='utf8')
-    with con:
+    try:
+        con = db.connect(host, user, pw, db_name, charset='utf8')
         cursor = con.cursor()
-        with cursor:
-            cursor.execute('insert into ' + table_name +
-                           '(date,code,name,close,high,low,open,amount,latitude,weight_close)'+
-                           'values(%s,%s,%s,%lf,%lf,%lf,%lf,%lf,%lf,%lf)'%(
-                               dic['date'], dic['code'], dic['name'], dic['close']
-                               , dic['high'], dic['low'], dic['open'], dic['amount']
-                               , dic['latitude'], dic['weight_close'] ))
+        cursor.execute('insert into ' + table_name +
+                       '(date,code,name,close,high,low,open,amount,weight_close)'+
+                       'values("%s","%s","%s","%lf","%lf","%lf","%lf","%lf","%lf")'%(
+                           dic['date'], dic['code'], dic['name'], dic['close']
+                           , dic['high'], dic['low'], dic['open'], dic['amount']
+                           , dic['weight_close'] ))
+        con.commit()
+        cursor.close()
+        con.close()
+    except:
+        print(table_name + ' insert data failed')
 
 ############插入一条周线记录#############
 def insert_week_data(host, user, pw, db_name, table_name, dic):
@@ -127,26 +152,33 @@ def insert_week_data(host, user, pw, db_name, table_name, dic):
 
 ##########查询表#############
 def query_tb_common(host, user, pw, db_name, paras):
-    con = db.connect(host, user, pw, db_name, charset='utf8')
-    with con:
+    try:
+        con = db.connect(host, user, pw, db_name, charset='utf8')
         cursor = con.cursor()
-        with cursor:
-            cursor.execute(paras)
-            datas = cursor.fetchall()
-            return datas
+        cursor.execute(paras)
+        datas = cursor.fetchall()
+        cursor.close()
+        con.close()
+        return datas
+    except:
+        print("query error")
 
 #################查询表################
 def query_tb(host, user, pw, db_name, table_name):
     paras = 'select * from '+table_name
-    query_tb_common(host, user, pw, db_name, paras)
+    return query_tb_common(host, user, pw, db_name, paras)
 
 
 
 #################更新表################
-def update_dailytb(host, user, pw, db_name, table_name, paras):
-    con = db.connect(host, user, pw, db_name, charset='utf8')
-    with con:
+def update_dailytb(host, user, pw, db_name, paras):
+    try:
+        con = db.connect(host, user, pw, db_name, charset='utf8')
         cursor = con.cursor()
-        with cursor:
-            cursor.execute(paras)
+        cursor.execute(paras)
+        con.commit()
+        cursor.close()
+        con.close()
+    except:
+        print("update error")
 
